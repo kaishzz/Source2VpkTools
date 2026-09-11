@@ -35,4 +35,8 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="CopySteamApi64ToPublishDirectory" AfterTargets="Publish" Condition="'$(SteamApi64Path)' != '' and Exists('$(SteamApi64Path)')">
+    <Copy SourceFiles="$(SteamApi64Path)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
