@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal static class Program
 {
@@ -10,7 +10,7 @@ internal static class Program
         if (!parseResult.IsSuccess)
         {
             Console.Error.WriteLine($"Error: {parseResult.Error}");
-            Console.Error.WriteLine("Run 'vpkdump --help' for usage.");
+            Console.Error.WriteLine("Run 'Source2VpkTools --help' for usage.");
             return 2;
         }
 

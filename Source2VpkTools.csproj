@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>vpkdump</AssemblyName>
-    <RootNamespace>Source2VpkDump</RootNamespace>
+    <AssemblyName>Source2VpkTools</AssemblyName>
+    <RootNamespace>Source2VpkTools</RootNamespace>
     <Version>0.1.0</Version>
     <UseSteamworksNetNuGet Condition="'$(UseSteamworksNetNuGet)' == ''">false</UseSteamworksNetNuGet>
     <SteamworksNetPath Condition="'$(UseSteamworksNetNuGet)' != 'true' and '$(SteamworksNetPath)' == ''">$(MSBuildThisFileDirectory)third_party\Steamworks.NET\2025.164.1\Windows-x64\Steamworks.NET.dll</SteamworksNetPath>

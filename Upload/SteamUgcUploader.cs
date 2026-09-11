@@ -1,6 +1,6 @@
 using Steamworks;
 
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal sealed class SteamUgcUploader : IWorkshopUploader
 {
@@ -12,7 +12,7 @@ internal sealed class SteamUgcUploader : IWorkshopUploader
         var nativeLibraryPath = Path.Combine(AppContext.BaseDirectory, "steam_api64.dll");
         if (!File.Exists(nativeLibraryPath))
         {
-            throw new FileNotFoundException("steam_api64.dll was not found beside vpkdump.exe", nativeLibraryPath);
+            throw new FileNotFoundException("steam_api64.dll was not found beside Source2VpkTools.exe", nativeLibraryPath);
         }
 
         if (!SteamAPI.Init())

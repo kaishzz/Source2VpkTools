@@ -1,4 +1,4 @@
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal sealed record WorkshopUploadResult(
     ulong WorkshopId,

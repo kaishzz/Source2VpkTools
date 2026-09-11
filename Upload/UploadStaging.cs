@@ -1,4 +1,4 @@
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal sealed class UploadStaging : IDisposable
 {
@@ -30,7 +30,7 @@ internal sealed class UploadStaging : IDisposable
 
     private static UploadStaging CreateCore(string? packageName)
     {
-        var rootDirectory = Path.Combine(Path.GetTempPath(), "Source2VpkDump", "upload", Guid.NewGuid().ToString("N"));
+        var rootDirectory = Path.Combine(Path.GetTempPath(), "Source2VpkTools", "upload", Guid.NewGuid().ToString("N"));
         var contentDirectory = Path.Combine(rootDirectory, "content");
         Directory.CreateDirectory(contentDirectory);
 

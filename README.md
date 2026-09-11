@@ -1,19 +1,19 @@
-# Source2VpkDump
+# Source2VpkTools
 
-`Source2VpkDump` 是一个独立的 Source 2 VPK 解包和 Steam Workshop 上传工具, 不依赖 ModSharp, 不需要启动 CS2 或 Workshop Manager
+`Source2VpkTools` 是一个独立的 Source 2 VPK 解包和 Steam Workshop 上传工具, 不依赖 ModSharp, 不需要启动 CS2 或 Workshop Manager
 
 工具只读取 VPK 中的 entry 并写出已编译文件, 不会反编译 `.vdata_c`, `.vtex_c`, `.vmdl_c`, `.vsnd_c` 等资源, 也无法从编译文件恢复原始源文件
 
 ## 使用
 
 ```powershell
-vpkdump.exe "D:\Steam\steamapps\workshop\content\730\123456789\123456789_dir.vpk"
+Source2VpkTools.exe "D:\Steam\steamapps\workshop\content\730\123456789\123456789_dir.vpk"
 ```
 
 默认输出到当前目录的 `assets` 文件夹, 也可以指定输出目录:
 
 ```powershell
-vpkdump.exe "D:\path\123456789_dir.vpk" --output "D:\Dump\assets"
+Source2VpkTools.exe "D:\path\123456789_dir.vpk" --output "D:\Dump\assets"
 ```
 
 支持将 VPK 文件直接拖拽到 EXE, Windows 会把文件路径作为命令行参数传入
@@ -29,7 +29,7 @@ vpkdump.exe "D:\path\123456789_dir.vpk" --output "D:\Dump\assets"
 先使用 dry-run 检查文件数量和 VPK round-trip:
 
 ```powershell
-vpkdump.exe upload `
+Source2VpkTools.exe upload `
   --content-dir "C:\Users\24854\Downloads\3782142946\dump" `
   --package-name "pak01_dir.vpk" `
   --title "My Map" `
@@ -42,7 +42,7 @@ vpkdump.exe upload `
 实际上传时去掉 `--dry-run`, 并确保 Steam 已启动且已登录:
 
 ```powershell
-vpkdump.exe upload `
+Source2VpkTools.exe upload `
   --content-dir "C:\Users\24854\Downloads\3782142946\dump" `
   --package-name "pak01_dir.vpk" `
   --title "My Map" `
@@ -59,7 +59,7 @@ Steamworks.NET 只提供托管绑定, 项目默认使用仓库内官方 `2025.16
 如果需要改用 NuGet 的 `2024.8.0` 绑定, 可显式使用:
 
 ```powershell
-dotnet build Source2VpkDump.csproj --configuration Release `
+dotnet build Source2VpkTools.csproj --configuration Release `
   -p:UseSteamworksNetNuGet=true `
   -p:SteamApi64Path="D:\Steamworks.NET-Standalone_2025.164.1\Windows-x64\steam_api64.dll"
 ```
@@ -81,32 +81,32 @@ assets\materials\example.vtex_c
 要求安装 .NET 10 SDK:
 
 ```powershell
-dotnet build Source2VpkDump.csproj --configuration Release
+dotnet build Source2VpkTools.csproj --configuration Release
 ```
 
 框架依赖版本位于:
 
 ```text
-bin\Release\net10.0\vpkdump.exe
+bin\Release\net10.0\Source2VpkTools.exe
 ```
 
 如果希望在未安装 .NET 10 Runtime 的机器上使用, 推荐发布为独立单文件:
 
 ```powershell
-dotnet publish Source2VpkDump.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish Source2VpkTools.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 独立单文件位于:
 
 ```text
-bin\Release\net10.0\win-x64\publish\vpkdump.exe
+bin\Release\net10.0\win-x64\publish\Source2VpkTools.exe
 ```
 
-将该目录加入 Windows 的 `PATH` 后, 就可以在任意终端中调用 `vpkdump`
+将该目录加入 Windows 的 `PATH` 后, 就可以在任意终端中调用 `Source2VpkTools`
 ## 直接上传已有 VPK
 
 如果已有完整 VPK, 可以使用 --vpk 直接上传. 指定 *_dir.vpk 时, 程序会自动复制同目录下匹配的 _001.vpk, _002.vpk 等分片, 不会再套一层 VPK. --vpk 与 --content-dir 互斥, 直接上传模式不需要 --package-name
 
 示例:
 
-    vpkdump.exe upload --vpk "C:\Users\24854\Downloads\3782142946\3782142946_dir.vpk" --title "My Workshop Item" --preview "C:\Upload\preview.jpg" --visibility private --dry-run
+    Source2VpkTools.exe upload --vpk "C:\Users\24854\Downloads\3782142946\3782142946_dir.vpk" --title "My Workshop Item" --preview "C:\Upload\preview.jpg" --visibility private --dry-run

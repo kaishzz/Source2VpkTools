@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal sealed class UploadPreparation : IDisposable
 {

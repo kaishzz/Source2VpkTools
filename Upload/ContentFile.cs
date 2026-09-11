@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal sealed record ContentFile(string FullPath, string RelativePath, long Length, string Sha256)
 {

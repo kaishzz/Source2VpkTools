@@ -1,6 +1,6 @@
 using ValvePak;
 
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal static class VpkExtractor
 {

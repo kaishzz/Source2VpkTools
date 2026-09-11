@@ -1,17 +1,17 @@
-namespace Source2VpkDump;
+namespace Source2VpkTools;
 
 internal static class ConsoleReporter
 {
     public static void WriteHelp()
     {
-        Console.WriteLine("Source2VpkDump - extract Source 2 VPK entries without decompiling them");
+        Console.WriteLine("Source2VpkTools - extract and upload Source 2 VPK content");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  vpkdump <input.vpk> [-o|--output <directory>]");
-        Console.WriteLine("  vpkdump upload --content-dir <directory> --package-name <file.vpk> --title <title> --preview <file>");
-        Console.WriteLine("  vpkdump upload --vpk <file.vpk> --title <title> --preview <file>");
-        Console.WriteLine("  vpkdump --help");
-        Console.WriteLine("  vpkdump --version");
+        Console.WriteLine("  Source2VpkTools <input.vpk> [-o|--output <directory>]");
+        Console.WriteLine("  Source2VpkTools upload --content-dir <directory> --package-name <file.vpk> --title <title> --preview <file>");
+        Console.WriteLine("  Source2VpkTools upload --vpk <file.vpk> --title <title> --preview <file>");
+        Console.WriteLine("  Source2VpkTools --help");
+        Console.WriteLine("  Source2VpkTools --version");
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  -o, --output <directory>  Output directory, defaults to .\\assets");
@@ -38,7 +38,7 @@ internal static class ConsoleReporter
     public static void WriteVersion()
     {
         var version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
-        Console.WriteLine($"Source2VpkDump {version}");
+        Console.WriteLine($"Source2VpkTools {version}");
     }
 
     public static void WriteEntry(ExtractionProgress progress)
