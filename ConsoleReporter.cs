@@ -8,6 +8,8 @@ internal static class ConsoleReporter
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  vpkdump <input.vpk> [-o|--output <directory>]");
+        Console.WriteLine("  vpkdump upload --content-dir <directory> --package-name <file.vpk> --title <title> --preview <file>");
+        Console.WriteLine("  vpkdump upload --vpk <file.vpk> --title <title> --preview <file>");
         Console.WriteLine("  vpkdump --help");
         Console.WriteLine("  vpkdump --version");
         Console.WriteLine();
@@ -16,6 +18,20 @@ internal static class ConsoleReporter
         Console.WriteLine("  -h, --help                Show this help");
         Console.WriteLine("      --version             Show the application version");
         Console.WriteLine();
+        Console.WriteLine("Upload options:");
+        Console.WriteLine("      --content-dir <dir>  VPK root; recursively includes all regular files");
+        Console.WriteLine("      --vpk <file.vpk>     Upload an existing VPK and its numbered chunks directly");
+        Console.WriteLine("      --package-name <vpk> Output VPK file name for --content-dir");
+        Console.WriteLine("      --workshop-id <id>   Existing item to update");
+        Console.WriteLine("      --preview <file>     Workshop preview image");
+        Console.WriteLine("      --description-file <file>");
+        Console.WriteLine("      --changenote <text>  Workshop change note");
+        Console.WriteLine("      --visibility <mode>  public, friends, private, or unlisted");
+        Console.WriteLine("      --tag <tag>          Workshop tag, repeatable");
+        Console.WriteLine("      --tags <a,b>         Comma-separated Workshop tags");
+        Console.WriteLine("      --state-file <file>  Save the ID and validated manifest after success");
+        Console.WriteLine("      --dry-run            Build and validate without uploading");
+        Console.WriteLine("      --keep-staging       Keep generated upload files after failure");
         Console.WriteLine("Use the *_dir.vpk file when the package has split VPK files. Keep its sibling files beside it.");
     }
 

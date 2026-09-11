@@ -9,9 +9,29 @@
     <AssemblyName>vpkdump</AssemblyName>
     <RootNamespace>Source2VpkDump</RootNamespace>
     <Version>0.1.0</Version>
+    <UseSteamworksNetNuGet Condition="'$(UseSteamworksNetNuGet)' == ''">false</UseSteamworksNetNuGet>
+    <SteamworksNetPath Condition="'$(UseSteamworksNetNuGet)' != 'true' and '$(SteamworksNetPath)' == ''">$(MSBuildThisFileDirectory)third_party\Steamworks.NET\2025.164.1\Windows-x64\Steamworks.NET.dll</SteamworksNetPath>
+    <SteamApi64Path Condition="'$(UseSteamworksNetNuGet)' != 'true' and '$(SteamApi64Path)' == ''">$(MSBuildThisFileDirectory)third_party\Steamworks.NET\2025.164.1\Windows-x64\steam_api64.dll</SteamApi64Path>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ValvePak" Version="6.0.0.182" />
+    <PackageReference Include="Steamworks.NET" Version="2024.8.0" Condition="'$(UseSteamworksNetNuGet)' == 'true'" />
+    <Reference Include="Steamworks.NET" Condition="'$(UseSteamworksNetNuGet)' != 'true' and '$(SteamworksNetPath)' != ''">
+      <HintPath>$(SteamworksNetPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <None Include="$(SteamworksNetPath)" Condition="'$(SteamworksNetPath)' != '' and Exists('$(SteamworksNetPath)')" Link="Steamworks.NET.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Update="steam_appid.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Include="$(SteamApi64Path)" Condition="'$(SteamApi64Path)' != '' and Exists('$(SteamApi64Path)')" Link="steam_api64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 </Project>

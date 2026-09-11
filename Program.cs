@@ -27,6 +27,11 @@ internal static class Program
             return 0;
         }
 
+        if (options.Command == CliCommand.Upload)
+        {
+            return UploadCommand.Run(options.Upload!);
+        }
+
         var stopwatch = Stopwatch.StartNew();
         try
         {
