@@ -7,9 +7,15 @@ internal static class CompileCommand
         try
         {
             var resolution = ResourceCompilerLocator.Resolve(options);
+            if (options.OutputDirectory is not null && resolution.Cs2Root is null)
+            {
+                throw new InvalidOperationException("A compile output directory requires a resolvable CS2 root");
+            }
+
             Console.WriteLine($"Resource compiler: {resolution.CompilerPath}");
             Console.WriteLine($"Input: {options.InputPath}");
             Console.WriteLine($"Gameinfo: {resolution.GameInfoPath ?? "native auto-detection"}");
+            Console.WriteLine($"Output: {options.OutputDirectory ?? "input directory"}");
             if (options.DryRun)
             {
                 var dryRunStaging = RequiresStaging(options, resolution);
@@ -21,7 +27,7 @@ internal static class CompileCommand
                 Console.WriteLine($"Command: {FormatCommand(resolution.CompilerPath, dryRunArguments)}");
                 if (RequiresStaging(options, resolution))
                 {
-                    Console.WriteLine("External input will be staged under the CS2 content directory and compiled outputs will be copied back");
+                    Console.WriteLine("Input will be staged under the CS2 content directory and compiled outputs will be copied to the selected output directory");
                 }
 
                 Console.WriteLine("Dry run complete; resource compilation was not started");
@@ -72,6 +78,16 @@ internal static class CompileCommand
             arguments.Add("-novpk");
         }
 
+        if (options.NoP4)
+        {
+            arguments.Add("-nop4");
+        }
+
+        if (options.Verbose)
+        {
+            arguments.Add("-v");
+        }
+
         if (resolution.GameInfoPath is not null)
         {
             arguments.Add("-game");
@@ -103,6 +119,11 @@ internal static class CompileCommand
         if (resolution.Cs2Root is null)
         {
             return false;
+        }
+
+        if (options.OutputDirectory is not null)
+        {
+            return true;
         }
 
         var contentDirectory = Path.Combine(resolution.Cs2Root, "content");

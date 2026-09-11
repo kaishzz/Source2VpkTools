@@ -49,10 +49,13 @@ Source2VpkTools.exe compile `
 --input <path>                 必填, 单个源文件或目录
 --cs2-root <directory>         覆盖自动发现的 CS2 根目录
 --resource-compiler <file>     覆盖 resourcecompiler.exe
---gameinfo <file>              覆盖 gameinfo.gi, 只读不修改
+--gameinfo <path>              覆盖 gameinfo.gi 或其所在游戏目录, 只读不修改
+--output <directory>            将编译结果复制到指定目录, 目录必须与输入路径不同
 --recursive                    递归编译目录
 --force                        强制重新编译
 --novpk                        请求编译器输出 loose 文件
+--nop4                         禁用 resourcecompiler.exe 的 Perforce 集成
+--verbose                      启用 resourcecompiler.exe 详细输出
 --dry-run                      只解析路径并显示命令, 不启动编译器
 ```
 
@@ -61,11 +64,12 @@ Source2VpkTools.exe compile `
 ```powershell
 Source2VpkTools.exe compile `
   --input "D:\CS2\content\csgo_addons\my_addon" `
+  --output "D:\CS2\compiled\my_addon" `
   --recursive `
   --dry-run
 ```
 
-如果 `--input` 不在 CS2 的 `content` 目录下, 原生编译器无法通过自身的 content 映射识别它, 工具会将输入临时复制到对应模块的 content 目录, 强制使用 `-novpk` 编译, 再把生成的编译文件复制回输入目录并清理临时目录. 该过程不会修改 `gameinfo.gi`, 但会在 CS2 的 content/game 目录创建带随机名称的临时目录; 正常结束或编译失败时都会清理. 因此可以直接指定任意外部源文件或目录, 但目录输入仍需使用 `--recursive` 才会处理子目录
+如果 `--input` 不在 CS2 的 `content` 目录下, 或者指定了 `--output`, 原生编译器无法直接使用输入路径时, 工具会将输入临时复制到对应模块的 content 目录, 强制使用 `-novpk` 编译, 再把生成的编译文件复制到输出目录并清理临时目录. 该过程不会修改 `gameinfo.gi`, 但会在 CS2 的 content/game 目录创建带随机名称的临时目录; 正常结束或编译失败时都会清理. 指定 `--output` 时必须能解析 CS2 根目录和 `gameinfo.gi`
 
 ## 导出地图实体
 

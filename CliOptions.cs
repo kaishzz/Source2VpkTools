@@ -186,9 +186,12 @@ internal sealed record CliOptions(
         string? cs2Root = null;
         string? resourceCompilerPath = null;
         string? gameInfoPath = null;
+        string? outputDirectory = null;
         var recursive = false;
         var force = false;
         var noVpk = false;
+        var noP4 = false;
+        var verbose = false;
         var dryRun = false;
         var singleOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -245,6 +248,18 @@ internal sealed record CliOptions(
                     }
 
                     break;
+                case "--output":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out outputDirectory, out var outputError))
+                    {
+                        return new CliParseResult(null, outputError);
+                    }
+
+                    break;
                 case "--recursive":
                     if (!singleOptions.Add(argument))
                     {
@@ -268,6 +283,22 @@ internal sealed record CliOptions(
                     }
 
                     noVpk = true;
+                    break;
+                case "--nop4":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    noP4 = true;
+                    break;
+                case "--verbose":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    verbose = true;
                     break;
                 case "--dry-run":
                     if (!singleOptions.Add(argument))
@@ -307,10 +338,16 @@ internal sealed record CliOptions(
             return new CliParseResult(null, compilerPathError);
         }
 
-        var fullGameInfoPath = ResolveExistingFile(gameInfoPath, "gameinfo.gi", out var gameInfoPathError);
+        var fullGameInfoPath = ResolveGameInfoPath(gameInfoPath, out var gameInfoPathError);
         if (gameInfoPathError is not null)
         {
             return new CliParseResult(null, gameInfoPathError);
+        }
+
+        var fullOutputPath = outputDirectory is null ? null : Path.GetFullPath(outputDirectory);
+        if (fullOutputPath is not null && File.Exists(fullOutputPath))
+        {
+            return new CliParseResult(null, $"The compile output path is a file: {fullOutputPath}");
         }
 
         return new CliParseResult(
@@ -318,7 +355,7 @@ internal sealed record CliOptions(
                 null,
                 null,
                 CliCommand.Compile,
-                new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, recursive, force, noVpk, dryRun),
+                new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, fullOutputPath, recursive, force, noVpk, noP4, verbose, dryRun),
                 null,
                 null,
                 false,
@@ -628,6 +665,29 @@ internal sealed record CliOptions(
         if (!File.Exists(fullPath))
         {
             error = $"The {description} was not found: {fullPath}";
+            return null;
+        }
+
+        return fullPath;
+    }
+
+    private static string? ResolveGameInfoPath(string? path, out string? error)
+    {
+        error = null;
+        if (path is null)
+        {
+            return null;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        if (Directory.Exists(fullPath))
+        {
+            fullPath = Path.Combine(fullPath, "gameinfo.gi");
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            error = $"The gameinfo.gi was not found: {fullPath}";
             return null;
         }
 

@@ -27,9 +27,21 @@ internal sealed class CompileInputWorkspace : IDisposable
 
     public static CompileInputWorkspace Create(CompileOptions options, ResourceCompilerResolution resolution)
     {
-        var outputDirectory = Directory.Exists(options.InputPath)
+        var outputDirectory = options.OutputDirectory ?? (Directory.Exists(options.InputPath)
             ? options.InputPath
-            : Path.GetDirectoryName(options.InputPath)!;
+            : Path.GetDirectoryName(options.InputPath)!);
+        outputDirectory = Path.GetFullPath(outputDirectory);
+
+        if (options.OutputDirectory is not null &&
+            string.Equals(outputDirectory, Path.GetFullPath(options.InputPath), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The compile output directory must differ from the input path");
+        }
+
+        if (options.OutputDirectory is not null && resolution.Cs2Root is null)
+        {
+            throw new InvalidOperationException("A compile output directory requires a resolvable CS2 root");
+        }
 
         if (resolution.Cs2Root is null)
         {
@@ -42,7 +54,7 @@ internal sealed class CompileInputWorkspace : IDisposable
         }
 
         var contentDirectory = GetContentDirectory(resolution);
-        if (IsWithinDirectory(options.InputPath, contentDirectory))
+        if (options.OutputDirectory is null && IsWithinDirectory(options.InputPath, contentDirectory))
         {
             return new CompileInputWorkspace(
                 GetCompilerInputPath(options.InputPath),
@@ -66,7 +78,7 @@ internal sealed class CompileInputWorkspace : IDisposable
         Directory.CreateDirectory(stagedContentDirectory);
         try
         {
-            CopyInput(options.InputPath, stagedContentDirectory);
+            CopyInput(options.InputPath, stagedContentDirectory, options.OutputDirectory);
             return new CompileInputWorkspace(
                 GetCompilerInputPath(options.InputPath, stagedContentDirectory),
                 outputDirectory,
@@ -94,6 +106,8 @@ internal sealed class CompileInputWorkspace : IDisposable
             throw new DirectoryNotFoundException(
                 $"resourcecompiler.exe completed without producing the expected output directory: {stagedGameDirectory}");
         }
+
+        Directory.CreateDirectory(OutputDirectory);
 
         foreach (var compiledFile in Directory.EnumerateFiles(stagedGameDirectory, "*", SearchOption.AllDirectories))
         {
@@ -137,12 +151,13 @@ internal sealed class CompileInputWorkspace : IDisposable
         return Directory.Exists(inputPath) ? Path.Combine(basePath, "*") : basePath;
     }
 
-    private static void CopyInput(string inputPath, string stagedDirectory)
+    private static void CopyInput(string inputPath, string stagedDirectory, string? outputDirectory)
     {
         if (Directory.Exists(inputPath))
         {
             foreach (var sourceFile in Directory.EnumerateFiles(inputPath, "*", SearchOption.AllDirectories)
-                         .Where(static file => !IsCompiledResource(file)))
+                         .Where(file => !IsCompiledResource(file) &&
+                                        (outputDirectory is null || !IsWithinDirectory(file, outputDirectory))))
             {
                 var relativePath = Path.GetRelativePath(inputPath, sourceFile);
                 var destinationPath = Path.Combine(stagedDirectory, relativePath);

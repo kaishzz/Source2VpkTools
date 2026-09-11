@@ -24,10 +24,13 @@ internal static class ConsoleReporter
         Console.WriteLine("      --input <path>       Source resource file or directory to compile");
         Console.WriteLine("      --cs2-root <dir>     CS2 installation root; auto-detected by AppID 730");
         Console.WriteLine("      --resource-compiler <file>  Override resourcecompiler.exe");
-        Console.WriteLine("      --gameinfo <file>    Override gameinfo.gi; the file is read-only");
+        Console.WriteLine("      --gameinfo <path>    Override gameinfo.gi or its game directory; read-only");
+        Console.WriteLine("      --output <dir>       Copy compiled files to this directory");
         Console.WriteLine("      --recursive          Recursively compile a directory input");
         Console.WriteLine("      --force              Force compilation of encountered resources");
         Console.WriteLine("      --novpk              Ask the native compiler to keep output loose");
+        Console.WriteLine("      --nop4               Disable Perforce integration in resourcecompiler.exe");
+        Console.WriteLine("      --verbose            Pass verbose output mode to resourcecompiler.exe");
         Console.WriteLine("      --dry-run            Resolve paths and print the command without compiling");
         Console.WriteLine();
         Console.WriteLine("Entities options:");
