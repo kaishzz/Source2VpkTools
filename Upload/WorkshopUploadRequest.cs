@@ -9,11 +9,3 @@ internal sealed record WorkshopUploadRequest(
     string ChangeNote,
     UploadVisibility Visibility,
     IReadOnlyList<string> Tags);
-
-internal interface IWorkshopUploader
-{
-    Task<WorkshopUploadResult> UploadAsync(
-        WorkshopUploadRequest request,
-        IProgress<UploadProgress>? progress,
-        CancellationToken cancellationToken);
-}

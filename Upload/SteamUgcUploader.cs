@@ -2,7 +2,7 @@ using Steamworks;
 
 namespace Source2VpkTools;
 
-internal sealed class SteamUgcUploader : IWorkshopUploader
+internal sealed class SteamUgcUploader
 {
     public async Task<WorkshopUploadResult> UploadAsync(
         WorkshopUploadRequest request,
