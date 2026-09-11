@@ -1,6 +1,6 @@
 # Source2VpkTools
 
-`Source2VpkTools` 是一个独立的 Source 2 VPK 解包和 Steam Workshop 上传工具, 不依赖 ModSharp, 不需要启动 CS2 或 Workshop Manager
+`Source2VpkTools` 是一个独立的 Source 2 VPK 解包、资源编译、地图实体导出和 Steam Workshop 上传工具, 不依赖 ModSharp, 不需要启动 CS2 或 Workshop Manager
 
 工具只读取 VPK 中的 entry 并写出已编译文件, 不会反编译 `.vdata_c`, `.vtex_c`, `.vmdl_c`, `.vsnd_c` 等资源, 也无法从编译文件恢复原始源文件
 
@@ -66,6 +66,18 @@ Source2VpkTools.exe compile `
 ```
 
 如果 `--input` 不在 CS2 的 `content` 目录下, 原生编译器无法通过自身的 content 映射识别它, 工具会将输入临时复制到对应模块的 content 目录, 强制使用 `-novpk` 编译, 再把生成的编译文件复制回输入目录并清理临时目录. 该过程不会修改 `gameinfo.gi`, 但会在 CS2 的 content/game 目录创建带随机名称的临时目录; 正常结束或编译失败时都会清理. 因此可以直接指定任意外部源文件或目录, 但目录输入仍需使用 `--recursive` 才会处理子目录
+
+## 导出地图实体
+
+`entities` 使用 `ValveResourceFormat` 解析 Workshop VPK 中嵌套地图 VPK 的 `vents_c` 实体块, 输出 JSONC 格式的实体、属性和 I/O 连接. 输入应为外层 Workshop VPK, 通常是 `*_dir.vpk`:
+
+```powershell
+Source2VpkTools.exe entities `
+  --input "C:\Steam\steamapps\workshop\content\730\123456789\123456789_dir.vpk" `
+  --output "D:\Dump\entities"
+```
+
+输出目录会包含一个合并的 `<vpk-name>_full.jsonc`, 以及按地图和实体块拆分的 JSONC 文件. 该命令只读取 VPK, 不会修改输入文件或 CS2 安装目录
 
 ## 上传到 CS2 Workshop
 

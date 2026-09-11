@@ -4,11 +4,12 @@ internal static class ConsoleReporter
 {
     public static void WriteHelp()
     {
-        Console.WriteLine("Source2VpkTools - extract and upload Source 2 VPK content");
+        Console.WriteLine("Source2VpkTools - extract, compile, inspect, and upload Source 2 content");
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  Source2VpkTools <input.vpk> [-o|--output <directory>]");
         Console.WriteLine("  Source2VpkTools compile --input <file-or-directory> [options]");
+        Console.WriteLine("  Source2VpkTools entities --input <workshop.vpk> [-o|--output <directory>]");
         Console.WriteLine("  Source2VpkTools upload --content-dir <directory> --package-name <file.vpk> --title <title> --preview <file>");
         Console.WriteLine("  Source2VpkTools upload --vpk <file.vpk> --title <title> --preview <file>");
         Console.WriteLine("  Source2VpkTools --help");
@@ -28,6 +29,10 @@ internal static class ConsoleReporter
         Console.WriteLine("      --force              Force compilation of encountered resources");
         Console.WriteLine("      --novpk              Ask the native compiler to keep output loose");
         Console.WriteLine("      --dry-run            Resolve paths and print the command without compiling");
+        Console.WriteLine();
+        Console.WriteLine("Entities options:");
+        Console.WriteLine("      --input <file.vpk>   Workshop VPK containing nested map VPKs");
+        Console.WriteLine("  -o, --output <dir>      JSONC output directory, defaults to .\\entities");
         Console.WriteLine();
         Console.WriteLine("Upload options:");
         Console.WriteLine("      --content-dir <dir>  VPK root; recursively includes all regular files");

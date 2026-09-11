@@ -4,6 +4,7 @@ internal enum CliCommand
 {
     Extract,
     Compile,
+    Entities,
     Upload
 }
 
@@ -12,6 +13,7 @@ internal sealed record CliOptions(
     string? OutputDirectory,
     CliCommand Command,
     CompileOptions? Compile,
+    EntityDumpOptions? Entities,
     UploadOptions? Upload,
     bool ShowHelp,
     bool ShowVersion)
@@ -31,6 +33,11 @@ internal sealed record CliOptions(
         if (string.Equals(args[0], "compile", StringComparison.OrdinalIgnoreCase))
         {
             return ParseCompile(args[1..]);
+        }
+
+        if (string.Equals(args[0], "entities", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseEntities(args[1..]);
         }
 
         string? inputPath = null;
@@ -82,7 +89,7 @@ internal sealed record CliOptions(
 
         if (showHelp || showVersion)
         {
-            return new CliParseResult(new CliOptions(inputPath, outputDirectory, CliCommand.Extract, null, null, showHelp, showVersion), null);
+            return new CliParseResult(new CliOptions(inputPath, outputDirectory, CliCommand.Extract, null, null, null, showHelp, showVersion), null);
         }
 
         if (inputPath is null)
@@ -92,14 +99,87 @@ internal sealed record CliOptions(
 
         var fullInputPath = Path.GetFullPath(inputPath);
         var fullOutputPath = Path.GetFullPath(outputDirectory ?? Path.Combine(Environment.CurrentDirectory, "assets"));
-        return new CliParseResult(new CliOptions(fullInputPath, fullOutputPath, CliCommand.Extract, null, null, false, false), null);
+        return new CliParseResult(new CliOptions(fullInputPath, fullOutputPath, CliCommand.Extract, null, null, null, false, false), null);
+    }
+
+    private static CliParseResult ParseEntities(string[] args)
+    {
+        if (args.Any(static argument => argument is "-h" or "--help"))
+        {
+            return new CliParseResult(new CliOptions(null, null, CliCommand.Entities, null, null, null, true, false), null);
+        }
+
+        string? inputPath = null;
+        string? outputDirectory = null;
+        var singleOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            var argument = args[index];
+            switch (argument)
+            {
+                case "--input":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out inputPath, out var inputError))
+                    {
+                        return new CliParseResult(null, inputError);
+                    }
+
+                    break;
+                case "-o":
+                case "--output":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out outputDirectory, out var outputError))
+                    {
+                        return new CliParseResult(null, outputError);
+                    }
+
+                    break;
+                case "--version":
+                    return new CliParseResult(new CliOptions(null, null, CliCommand.Entities, null, null, null, false, true), null);
+                default:
+                    return new CliParseResult(null, $"Unknown entities option: {argument}");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(inputPath))
+        {
+            return new CliParseResult(null, "The entities input VPK path is required");
+        }
+
+        var fullInputPath = Path.GetFullPath(inputPath);
+        if (!File.Exists(fullInputPath))
+        {
+            return new CliParseResult(null, $"The entities input VPK was not found: {fullInputPath}");
+        }
+
+        var fullOutputPath = Path.GetFullPath(outputDirectory ?? Path.Combine(Environment.CurrentDirectory, "entities"));
+        return new CliParseResult(
+            new CliOptions(
+                null,
+                null,
+                CliCommand.Entities,
+                null,
+                new EntityDumpOptions(fullInputPath, fullOutputPath),
+                null,
+                false,
+                false),
+            null);
     }
 
     private static CliParseResult ParseCompile(string[] args)
     {
         if (args.Any(static argument => argument is "-h" or "--help"))
         {
-            return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, true, false), null);
+            return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, null, true, false), null);
         }
 
         string? inputPath = null;
@@ -198,7 +278,7 @@ internal sealed record CliOptions(
                     dryRun = true;
                     break;
                 case "--version":
-                    return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, false, true), null);
+                    return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, null, false, true), null);
                 default:
                     return new CliParseResult(null, $"Unknown compile option: {argument}");
             }
@@ -240,6 +320,7 @@ internal sealed record CliOptions(
                 CliCommand.Compile,
                 new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, recursive, force, noVpk, dryRun),
                 null,
+                null,
                 false,
                 false),
             null);
@@ -249,7 +330,7 @@ internal sealed record CliOptions(
     {
         if (args.Any(static argument => argument is "-h" or "--help"))
         {
-            return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, true, false), null);
+            return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, null, true, false), null);
         }
 
         string? contentDirectory = null;
@@ -433,7 +514,7 @@ internal sealed record CliOptions(
                     keepStaging = true;
                     break;
                 case "--version":
-                    return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, false, true), null);
+                    return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, null, false, true), null);
                 default:
                     return new CliParseResult(null, $"Unknown upload option: {argument}");
             }
@@ -511,6 +592,7 @@ internal sealed record CliOptions(
                 null,
                 null,
                 CliCommand.Upload,
+                null,
                 null,
                 new UploadOptions(
                     fullContentDirectory,

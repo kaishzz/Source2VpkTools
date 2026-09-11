@@ -32,6 +32,11 @@ internal static class Program
             return CompileCommand.Run(options.Compile!);
         }
 
+        if (options.Command == CliCommand.Entities)
+        {
+            return EntityDumpCommand.Run(options.Entities!);
+        }
+
         if (options.Command == CliCommand.Upload)
         {
             return UploadCommand.Run(options.Upload!);
