@@ -8,6 +8,7 @@ internal static class ConsoleReporter
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  Source2VpkTools <input.vpk> [-o|--output <directory>]");
+        Console.WriteLine("  Source2VpkTools compile --input <file-or-directory> [options]");
         Console.WriteLine("  Source2VpkTools upload --content-dir <directory> --package-name <file.vpk> --title <title> --preview <file>");
         Console.WriteLine("  Source2VpkTools upload --vpk <file.vpk> --title <title> --preview <file>");
         Console.WriteLine("  Source2VpkTools --help");
@@ -17,6 +18,16 @@ internal static class ConsoleReporter
         Console.WriteLine("  -o, --output <directory>  Output directory, defaults to .\\assets");
         Console.WriteLine("  -h, --help                Show this help");
         Console.WriteLine("      --version             Show the application version");
+        Console.WriteLine();
+        Console.WriteLine("Compile options:");
+        Console.WriteLine("      --input <path>       Source resource file or directory to compile");
+        Console.WriteLine("      --cs2-root <dir>     CS2 installation root; auto-detected by AppID 730");
+        Console.WriteLine("      --resource-compiler <file>  Override resourcecompiler.exe");
+        Console.WriteLine("      --gameinfo <file>    Override gameinfo.gi; the file is read-only");
+        Console.WriteLine("      --recursive          Recursively compile a directory input");
+        Console.WriteLine("      --force              Force compilation of encountered resources");
+        Console.WriteLine("      --novpk              Ask the native compiler to keep output loose");
+        Console.WriteLine("      --dry-run            Resolve paths and print the command without compiling");
         Console.WriteLine();
         Console.WriteLine("Upload options:");
         Console.WriteLine("      --content-dir <dir>  VPK root; recursively includes all regular files");

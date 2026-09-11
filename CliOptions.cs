@@ -3,6 +3,7 @@ namespace Source2VpkTools;
 internal enum CliCommand
 {
     Extract,
+    Compile,
     Upload
 }
 
@@ -10,6 +11,7 @@ internal sealed record CliOptions(
     string? InputPath,
     string? OutputDirectory,
     CliCommand Command,
+    CompileOptions? Compile,
     UploadOptions? Upload,
     bool ShowHelp,
     bool ShowVersion)
@@ -24,6 +26,11 @@ internal sealed record CliOptions(
         if (string.Equals(args[0], "upload", StringComparison.OrdinalIgnoreCase))
         {
             return ParseUpload(args[1..]);
+        }
+
+        if (string.Equals(args[0], "compile", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseCompile(args[1..]);
         }
 
         string? inputPath = null;
@@ -75,7 +82,7 @@ internal sealed record CliOptions(
 
         if (showHelp || showVersion)
         {
-            return new CliParseResult(new CliOptions(inputPath, outputDirectory, CliCommand.Extract, null, showHelp, showVersion), null);
+            return new CliParseResult(new CliOptions(inputPath, outputDirectory, CliCommand.Extract, null, null, showHelp, showVersion), null);
         }
 
         if (inputPath is null)
@@ -85,14 +92,164 @@ internal sealed record CliOptions(
 
         var fullInputPath = Path.GetFullPath(inputPath);
         var fullOutputPath = Path.GetFullPath(outputDirectory ?? Path.Combine(Environment.CurrentDirectory, "assets"));
-        return new CliParseResult(new CliOptions(fullInputPath, fullOutputPath, CliCommand.Extract, null, false, false), null);
+        return new CliParseResult(new CliOptions(fullInputPath, fullOutputPath, CliCommand.Extract, null, null, false, false), null);
+    }
+
+    private static CliParseResult ParseCompile(string[] args)
+    {
+        if (args.Any(static argument => argument is "-h" or "--help"))
+        {
+            return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, true, false), null);
+        }
+
+        string? inputPath = null;
+        string? cs2Root = null;
+        string? resourceCompilerPath = null;
+        string? gameInfoPath = null;
+        var recursive = false;
+        var force = false;
+        var noVpk = false;
+        var dryRun = false;
+        var singleOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            var argument = args[index];
+            switch (argument)
+            {
+                case "--input":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out inputPath, out var inputError))
+                    {
+                        return new CliParseResult(null, inputError);
+                    }
+
+                    break;
+                case "--cs2-root":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out cs2Root, out var rootError))
+                    {
+                        return new CliParseResult(null, rootError);
+                    }
+
+                    break;
+                case "--resource-compiler":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out resourceCompilerPath, out var compilerError))
+                    {
+                        return new CliParseResult(null, compilerError);
+                    }
+
+                    break;
+                case "--gameinfo":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    if (!TryReadValue(args, ref index, argument, out gameInfoPath, out var gameInfoError))
+                    {
+                        return new CliParseResult(null, gameInfoError);
+                    }
+
+                    break;
+                case "--recursive":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    recursive = true;
+                    break;
+                case "--force":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    force = true;
+                    break;
+                case "--novpk":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    noVpk = true;
+                    break;
+                case "--dry-run":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+
+                    dryRun = true;
+                    break;
+                case "--version":
+                    return new CliParseResult(new CliOptions(null, null, CliCommand.Compile, null, null, false, true), null);
+                default:
+                    return new CliParseResult(null, $"Unknown compile option: {argument}");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(inputPath))
+        {
+            return new CliParseResult(null, "The compile input path is required");
+        }
+
+        var fullInputPath = Path.GetFullPath(inputPath);
+        if (!File.Exists(fullInputPath) && !Directory.Exists(fullInputPath))
+        {
+            return new CliParseResult(null, $"The compile input path was not found: {fullInputPath}");
+        }
+
+        var fullCs2Root = cs2Root is null ? null : Path.GetFullPath(cs2Root);
+        if (fullCs2Root is not null && !Directory.Exists(fullCs2Root))
+        {
+            return new CliParseResult(null, $"The CS2 root directory was not found: {fullCs2Root}");
+        }
+
+        var fullCompilerPath = ResolveExistingFile(resourceCompilerPath, "resource compiler", out var compilerPathError);
+        if (compilerPathError is not null)
+        {
+            return new CliParseResult(null, compilerPathError);
+        }
+
+        var fullGameInfoPath = ResolveExistingFile(gameInfoPath, "gameinfo.gi", out var gameInfoPathError);
+        if (gameInfoPathError is not null)
+        {
+            return new CliParseResult(null, gameInfoPathError);
+        }
+
+        return new CliParseResult(
+            new CliOptions(
+                null,
+                null,
+                CliCommand.Compile,
+                new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, recursive, force, noVpk, dryRun),
+                null,
+                false,
+                false),
+            null);
     }
 
     private static CliParseResult ParseUpload(string[] args)
     {
         if (args.Any(static argument => argument is "-h" or "--help"))
         {
-            return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, true, false), null);
+            return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, true, false), null);
         }
 
         string? contentDirectory = null;
@@ -276,7 +433,7 @@ internal sealed record CliOptions(
                     keepStaging = true;
                     break;
                 case "--version":
-                    return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, false, true), null);
+                    return new CliParseResult(new CliOptions(null, null, CliCommand.Upload, null, null, false, true), null);
                 default:
                     return new CliParseResult(null, $"Unknown upload option: {argument}");
             }
@@ -354,6 +511,7 @@ internal sealed record CliOptions(
                 null,
                 null,
                 CliCommand.Upload,
+                null,
                 new UploadOptions(
                     fullContentDirectory,
                     fullVpkPath,

@@ -20,6 +20,53 @@ Source2VpkTools.exe "D:\path\123456789_dir.vpk" --output "D:\Dump\assets"
 
 对于拆分 VPK, 应传入 `*_dir.vpk`, 并保持同目录下的其他 VPK 分片文件不变
 
+## 编译 Source 2 资源
+
+`compile` 会调用本机 CS2 Workshop Tools 提供的原生 `resourcecompiler.exe`, 将 `.vmat`, `.vtex`, `.vmdl`, `.vdata`, `.vmap` 等源文件编译为运行时使用的 `_c` 文件. 工具不会实现或替换 Valve 的编译器, 不会修改 `gameinfo.gi`, 也不会启动 CS2 或 Workshop Tools UI. `--gameinfo` 指向文件路径, 传给原生编译器时会自动转换为其要求的所在目录
+
+输入路径必须由调用者指定, CS2 安装目录和编译器路径默认通过 Steam AppID `730` 自动查找:
+
+```powershell
+Source2VpkTools.exe compile `
+  --input "C:\Steam\steamapps\common\Counter-Strike Global Offensive\content\csgo_addons\my_addon" `
+  --recursive
+```
+
+自动查找失败时, 可以显式指定覆盖路径:
+
+```powershell
+Source2VpkTools.exe compile `
+  --input "D:\CS2\content\csgo_addons\my_addon" `
+  --cs2-root "D:\CS2" `
+  --resource-compiler "D:\CS2\game\bin\win64\resourcecompiler.exe" `
+  --gameinfo "D:\CS2\game\csgo\gameinfo.gi" `
+  --recursive
+```
+
+可用选项:
+
+```text
+--input <path>                 必填, 单个源文件或目录
+--cs2-root <directory>         覆盖自动发现的 CS2 根目录
+--resource-compiler <file>     覆盖 resourcecompiler.exe
+--gameinfo <file>              覆盖 gameinfo.gi, 只读不修改
+--recursive                    递归编译目录
+--force                        强制重新编译
+--novpk                        请求编译器输出 loose 文件
+--dry-run                      只解析路径并显示命令, 不启动编译器
+```
+
+`--dry-run` 可用于确认自动解析结果:
+
+```powershell
+Source2VpkTools.exe compile `
+  --input "D:\CS2\content\csgo_addons\my_addon" `
+  --recursive `
+  --dry-run
+```
+
+如果 `--input` 不在 CS2 的 `content` 目录下, 原生编译器无法通过自身的 content 映射识别它, 工具会将输入临时复制到对应模块的 content 目录, 强制使用 `-novpk` 编译, 再把生成的编译文件复制回输入目录并清理临时目录. 该过程不会修改 `gameinfo.gi`, 但会在 CS2 的 content/game 目录创建带随机名称的临时目录; 正常结束或编译失败时都会清理. 因此可以直接指定任意外部源文件或目录, 但目录输入仍需使用 `--recursive` 才会处理子目录
+
 ## 上传到 CS2 Workshop
 
 `upload` 的 `--content-dir` 是 VPK 的根目录, 程序会递归读取该目录下的所有普通文件, 保留相对路径并生成一个外层 VPK. 例如选择 `dump` 时, `dump\maps\test.vpk` 会进入外层 VPK 的 `maps/test.vpk`, 不会多出一层 `dump/`. 原始目录不会被修改, Steam 接收的是临时目录中的生成 VPK, 不是原始目录
