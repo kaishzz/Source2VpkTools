@@ -6,3 +6,6 @@ docs/superpowers/
 TestResults/
 *.user
 *.suo
+.env
+.env.*
+!.env.example
