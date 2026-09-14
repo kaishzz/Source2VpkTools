@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using ValveKeyValue;
 using ValvePak;
 using ValveResourceFormat;
@@ -15,7 +14,6 @@ internal static class EntityDumpCommand
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         WriteIndented = true
     };
@@ -42,7 +40,7 @@ internal static class EntityDumpCommand
     private static EntityDumpResult Dump(EntityDumpOptions options)
     {
         Directory.CreateDirectory(options.OutputDirectory);
-        var allLumps = new Dictionary<string, Dictionary<string, List<EntityRecord>>>(StringComparer.OrdinalIgnoreCase);
+        var allLumps = new Dictionary<string, Dictionary<string, List<JsonObject>>>(StringComparer.OrdinalIgnoreCase);
         var mapVpkCount = 0;
         var entityLumpCount = 0;
         var entityCount = 0;
@@ -60,11 +58,11 @@ internal static class EntityDumpCommand
             mapVpkCount++;
             package.ReadEntry(mapEntry, out var mapBytes, false);
             var mapPath = NormalizeRelativePath(mapEntry.GetFullPath());
-            var mapKey = Path.ChangeExtension(mapPath, null)!.Replace(Path.DirectorySeparatorChar, '/');
+            var mapKey = Path.ChangeExtension(mapPath, null)!.ToLowerInvariant();
             var mapOutputDirectory = GetOutputPath(options.OutputDirectory, mapKey);
             Directory.CreateDirectory(mapOutputDirectory);
 
-            var lumps = new Dictionary<string, List<EntityRecord>>(StringComparer.OrdinalIgnoreCase);
+            var lumps = new Dictionary<string, List<JsonObject>>(StringComparer.OrdinalIgnoreCase);
             using var mapStream = new MemoryStream(mapBytes, writable: false);
             using var mapPackage = new Package();
             mapPackage.SetFileName(Path.GetFileName(mapPath));
@@ -92,7 +90,7 @@ internal static class EntityDumpCommand
         return new EntityDumpResult(options.InputPath, options.OutputDirectory, mapVpkCount, entityLumpCount, entityCount);
     }
 
-    private static List<EntityRecord> ReadEntities(Package package, PackageEntry lumpEntry)
+    private static List<JsonObject> ReadEntities(Package package, PackageEntry lumpEntry)
     {
         package.ReadEntry(lumpEntry, out var lumpBytes, false);
         using var stream = new MemoryStream(lumpBytes, writable: false);
@@ -109,42 +107,69 @@ internal static class EntityDumpCommand
         return entityLump.GetEntities().Select(ToEntityRecord).ToList();
     }
 
-    private static EntityRecord ToEntityRecord(EntityLump.Entity entity)
+    private static JsonObject ToEntityRecord(EntityLump.Entity entity)
     {
-        var properties = new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase);
+        var classname = GetStringProperty(entity, "classname") ??
+            throw new InvalidDataException("The entity is missing an exact classname property");
+        var result = new JsonObject
+        {
+            ["classname"] = classname
+        };
+
+        var hammerUniqueId = GetStringProperty(entity, "hammerUniqueId");
+        if (hammerUniqueId is not null)
+        {
+            result["hammerUniqueId"] = hammerUniqueId;
+        }
+
+        var targetname = GetStringProperty(entity, "targetname");
+        if (targetname is not null)
+        {
+            result["targetname"] = targetname;
+        }
+
         foreach (var (key, value) in entity)
         {
-            if (key is null || key.Equals("classname", StringComparison.OrdinalIgnoreCase) ||
-                key.Contains("targetname", StringComparison.OrdinalIgnoreCase) ||
-                key.Contains("hammerUniqueId", StringComparison.OrdinalIgnoreCase))
+            if (key is null || key is "classname" or "hammerUniqueId" or "targetname" or "connections")
             {
                 continue;
             }
 
-            properties[key] = ToJsonNode(value);
+            result[key] = ToJsonNode(value);
         }
 
-        var connections = entity.Connections?.Select(static connection => new EntityConnection(
-            connection.OutputName,
-            connection.TargetName,
-            connection.InputName,
-            connection.OverrideParam,
-            connection.Delay,
-            connection.TimesToFire)).ToList();
+        if (entity.Connections is { Count: > 0 } connections)
+        {
+            var connectionArray = new JsonArray();
+            foreach (var connection in connections)
+            {
+                connectionArray.Add(ToConnectionRecord(connection));
+            }
 
-        return new EntityRecord(
-            GetStringProperty(entity, "classname") ?? string.Empty,
-            GetStringProperty(entity, "hammerUniqueId") ?? string.Empty,
-            GetStringProperty(entity, "targetname"),
-            properties,
-            connections);
+            result["connections"] = connectionArray;
+        }
+
+        return result;
+    }
+
+    private static JsonObject ToConnectionRecord(EntityLump.Connection connection)
+    {
+        return new JsonObject
+        {
+            ["output"] = connection.OutputName,
+            ["target"] = connection.TargetName,
+            ["input"] = connection.InputName,
+            ["param"] = connection.OverrideParam,
+            ["delay"] = connection.Delay,
+            ["limit"] = connection.TimesToFire
+        };
     }
 
     private static string? GetStringProperty(EntityLump.Entity entity, string name)
     {
         foreach (var (key, value) in entity)
         {
-            if (key.Equals(name, StringComparison.OrdinalIgnoreCase))
+            if (key == name)
             {
                 return value.ValueType == KVValueType.String ? (string)value : value.ToString();
             }
@@ -209,7 +234,7 @@ internal static class EntityDumpCommand
         }
 
         var json = JsonSerializer.Serialize(value, JsonOptions);
-        File.WriteAllText(path, "// Generated by Source2VpkTools\n" + json + Environment.NewLine, new UTF8Encoding(false));
+        File.WriteAllText(path, "// Generated by Source2VpkTools\n" + json + "\n", new UTF8Encoding(false));
     }
 
     private static string NormalizeRelativePath(string path)
@@ -259,18 +284,4 @@ internal static class EntityDumpCommand
         int EntityLumpCount,
         int EntityCount);
 
-    private sealed record EntityRecord(
-        [property: JsonPropertyName("classname")] string Classname,
-        [property: JsonPropertyName("hammerUniqueId")] string HammerUniqueId,
-        [property: JsonPropertyName("targetname")] string? Targetname,
-        [property: JsonPropertyName("properties")] Dictionary<string, JsonNode?> Properties,
-        [property: JsonPropertyName("connections")] List<EntityConnection>? Connections);
-
-    private sealed record EntityConnection(
-        [property: JsonPropertyName("output")] string Output,
-        [property: JsonPropertyName("target")] string Target,
-        [property: JsonPropertyName("input")] string Input,
-        [property: JsonPropertyName("param")] string Param,
-        [property: JsonPropertyName("delay")] float Delay,
-        [property: JsonPropertyName("timesToFire")] int TimesToFire);
 }

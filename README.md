@@ -83,6 +83,29 @@ Source2VpkTools.exe entities `
 
 输出目录会包含一个合并的 `<vpk-name>_full.jsonc`, 以及按地图和实体块拆分的 JSONC 文件. 该命令只读取 VPK, 不会修改输入文件或 CS2 安装目录
 
+生成的实体对象使用 StripperSharp 的规范字段结构, 可以直接复制到 KepConfigs 的实体配置中:
+
+```jsonc
+{
+  "classname": "func_breakable",
+  "hammerUniqueId": "123:456",
+  "targetname": "example",
+  "m_iHealth": 100,
+  "connections": [
+    {
+      "output": "OnBreak",
+      "target": "target_entity",
+      "input": "Enable",
+      "param": "",
+      "delay": 0,
+      "limit": -1
+    }
+  ]
+}
+```
+
+`classname`, `targetname`, `hammerUniqueId` 和 `connections` 使用固定大小写. 其他实体属性保持原始字段名和值. `connections` 使用 `output`, `target`, `input`, `param`, `delay` 和 `limit` 字段. 生成的文件保留地图和实体块的外层结构, 便于按地图和实体块查看或复制实体对象
+
 ## 上传到 CS2 Workshop
 
 `upload` 的 `--content-dir` 是 VPK 的根目录, 程序会递归读取该目录下的所有普通文件, 保留相对路径并生成一个外层 VPK. 例如选择 `dump` 时, `dump\maps\test.vpk` 会进入外层 VPK 的 `maps/test.vpk`, 不会多出一层 `dump/`. 原始目录不会被修改, Steam 接收的是临时目录中的生成 VPK, 不是原始目录
