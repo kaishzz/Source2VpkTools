@@ -90,7 +90,7 @@ Source2VpkTools.exe entities `
   "classname": "func_breakable",
   "hammerUniqueId": "123:456",
   "targetname": "example",
-  "m_iHealth": 100,
+  "m_iHealth": "100",
   "connections": [
     {
       "output": "OnBreak",
@@ -104,7 +104,7 @@ Source2VpkTools.exe entities `
 }
 ```
 
-`classname`, `targetname`, `hammerUniqueId` 和 `connections` 使用固定大小写. 其他实体属性保持原始字段名和值. `connections` 使用 `output`, `target`, `input`, `param`, `delay` 和 `limit` 字段. 生成的文件保留地图和实体块的外层结构, 便于按地图和实体块查看或复制实体对象
+`classname`, `targetname`, `hammerUniqueId` 和 `connections` 使用固定大小写. 其他实体属性保持原始字段名, 值统一使用 JSON 字符串, 布尔值使用 `"1"` 或 `"0"`, 数组使用空格分隔的字符串. `connections` 使用 `output`, `target`, `input`, `param`, `delay` 和 `limit` 字段, 其中前四项为字符串, `delay` 和 `limit` 为数字. 生成的文件保留地图和实体块的外层结构, 便于按地图和实体块查看或复制实体对象
 
 ## 上传到 CS2 Workshop
 

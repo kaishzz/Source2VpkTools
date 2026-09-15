@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -109,33 +110,38 @@ internal static class EntityDumpCommand
 
     private static JsonObject ToEntityRecord(EntityLump.Entity entity)
     {
-        var classname = GetStringProperty(entity, "classname") ??
+        var classname = GetEntityProperty(entity, "classname") ??
             throw new InvalidDataException("The entity is missing an exact classname property");
         var result = new JsonObject
         {
-            ["classname"] = classname
+            ["classname"] = JsonValue.Create(classname)
         };
 
-        var hammerUniqueId = GetStringProperty(entity, "hammerUniqueId");
+        var hammerUniqueId = GetEntityProperty(entity, "hammerUniqueId");
         if (hammerUniqueId is not null)
         {
-            result["hammerUniqueId"] = hammerUniqueId;
+            result["hammerUniqueId"] = JsonValue.Create(hammerUniqueId);
         }
 
-        var targetname = GetStringProperty(entity, "targetname");
+        var targetname = GetEntityProperty(entity, "targetname");
         if (targetname is not null)
         {
-            result["targetname"] = targetname;
+            result["targetname"] = JsonValue.Create(targetname);
         }
 
         foreach (var (key, value) in entity)
         {
-            if (key is null || key is "classname" or "hammerUniqueId" or "targetname" or "connections")
+            var outputKey = GetCanonicalEntityKey(key);
+            if (outputKey is null || outputKey is "classname" or "hammerUniqueId" or "targetname" or "connections")
             {
                 continue;
             }
 
-            result[key] = ToJsonNode(value);
+            var outputValue = ToEntityValue(value);
+            if (outputValue is not null)
+            {
+                result[outputKey] = JsonValue.Create(outputValue);
+            }
         }
 
         if (entity.Connections is { Count: > 0 } connections)
@@ -156,73 +162,59 @@ internal static class EntityDumpCommand
     {
         return new JsonObject
         {
-            ["output"] = connection.OutputName,
-            ["target"] = connection.TargetName,
-            ["input"] = connection.InputName,
-            ["param"] = connection.OverrideParam,
+            ["output"] = connection.OutputName ?? string.Empty,
+            ["target"] = connection.TargetName ?? string.Empty,
+            ["input"] = connection.InputName ?? string.Empty,
+            ["param"] = connection.OverrideParam ?? string.Empty,
             ["delay"] = connection.Delay,
             ["limit"] = connection.TimesToFire
         };
     }
 
-    private static string? GetStringProperty(EntityLump.Entity entity, string name)
+    private static string? GetEntityProperty(EntityLump.Entity entity, string name)
     {
         foreach (var (key, value) in entity)
         {
-            if (key == name)
+            if (GetCanonicalEntityKey(key) == name)
             {
-                return value.ValueType == KVValueType.String ? (string)value : value.ToString();
+                return ToEntityValue(value);
             }
         }
 
         return null;
     }
 
-    private static JsonNode? ToJsonNode(KVObject value)
+    private static string? GetCanonicalEntityKey(string? key)
+    {
+        return key switch
+        {
+            "hammeruniqueid" or "hammerUniqueId" => "hammerUniqueId",
+            _ => key
+        };
+    }
+
+    private static string? ToEntityValue(KVObject value)
     {
         return value.ValueType switch
         {
             KVValueType.Null => null,
-            KVValueType.Collection => ToJsonObject(value),
-            KVValueType.Array => ToJsonArray(value),
-            KVValueType.Boolean => JsonValue.Create((bool)value),
-            KVValueType.String => JsonValue.Create((string)value),
-            KVValueType.FloatingPoint => JsonValue.Create((float)value),
-            KVValueType.FloatingPoint64 => JsonValue.Create((double)value),
-            KVValueType.Int16 => JsonValue.Create((short)value),
-            KVValueType.UInt16 => JsonValue.Create((ushort)value),
-            KVValueType.Int32 => JsonValue.Create((int)value),
-            KVValueType.UInt32 => JsonValue.Create((uint)value),
-            KVValueType.Int64 => JsonValue.Create((long)value),
-            KVValueType.UInt64 => JsonValue.Create((ulong)value),
-            KVValueType.BinaryBlob => JsonValue.Create(Convert.ToBase64String(value.AsBlob())),
-            _ => JsonValue.Create(value.ToString())
+            KVValueType.Collection => value.ToString(),
+            KVValueType.Array => string.Join(' ', value.Values
+                .Select(ToEntityValue)
+                .Where(static item => item is not null)),
+            KVValueType.Boolean => (bool)value ? "1" : "0",
+            KVValueType.String => (string)value,
+            KVValueType.FloatingPoint => ((float)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.FloatingPoint64 => ((double)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.Int16 => ((short)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.UInt16 => ((ushort)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.Int32 => ((int)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.UInt32 => ((uint)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.Int64 => ((long)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.UInt64 => ((ulong)value).ToString(CultureInfo.InvariantCulture),
+            KVValueType.BinaryBlob => Convert.ToBase64String(value.AsBlob()),
+            _ => value.ToString()
         };
-    }
-
-    private static JsonObject ToJsonObject(KVObject value)
-    {
-        var result = new JsonObject();
-        foreach (var (key, child) in value)
-        {
-            if (key is not null)
-            {
-                result[key] = ToJsonNode(child);
-            }
-        }
-
-        return result;
-    }
-
-    private static JsonArray ToJsonArray(KVObject value)
-    {
-        var result = new JsonArray();
-        foreach (var child in value.Values)
-        {
-            result.Add(ToJsonNode(child));
-        }
-
-        return result;
     }
 
     private static void WriteJsonc<T>(string path, T value)
@@ -233,7 +225,9 @@ internal static class EntityDumpCommand
             Directory.CreateDirectory(directory);
         }
 
-        var json = JsonSerializer.Serialize(value, JsonOptions);
+        var json = JsonSerializer.Serialize(value, JsonOptions)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace("\r", "\n", StringComparison.Ordinal);
         File.WriteAllText(path, "// Generated by Source2VpkTools\n" + json + "\n", new UTF8Encoding(false));
     }
 
