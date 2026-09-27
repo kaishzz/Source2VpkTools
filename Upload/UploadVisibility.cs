@@ -18,11 +18,9 @@ internal static class UploadVisibilityParser
                 visibility = UploadVisibility.Public;
                 return true;
             case "friends":
-            case "friendsonly":
                 visibility = UploadVisibility.FriendsOnly;
                 return true;
             case "private":
-            case "hidden":
                 visibility = UploadVisibility.Private;
                 return true;
             case "unlisted":

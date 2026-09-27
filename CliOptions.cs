@@ -132,7 +132,7 @@ internal sealed record CliOptions(
                     break;
                 case "-o":
                 case "--output":
-                    if (!singleOptions.Add(argument))
+                    if (!singleOptions.Add("--output"))
                     {
                         return DuplicateOption(argument);
                     }
