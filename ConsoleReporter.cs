@@ -25,6 +25,7 @@ internal static class ConsoleReporter
         Console.WriteLine("      --cs2-root <dir>     CS2 installation root; auto-detected by AppID 730");
         Console.WriteLine("      --resource-compiler <file>  Override resourcecompiler.exe");
         Console.WriteLine("      --gameinfo <path>    Override gameinfo.gi or its game directory; read-only");
+        Console.WriteLine("      --content-root <dir>  指定资源内容根, 外部单文件编译时必填");
         Console.WriteLine("      --output <dir>       Copy compiled files to this directory");
         Console.WriteLine("      --recursive          Recursively compile a directory input");
         Console.WriteLine("      --force              Force compilation of encountered resources");

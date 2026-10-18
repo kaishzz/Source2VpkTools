@@ -25,12 +25,11 @@ internal static class ResourceCompilerProcess
         process.ErrorDataReceived += static (_, eventArgs) => WriteLine(eventArgs.Data);
         if (!process.Start())
         {
-            throw new InvalidOperationException("Failed to start resourcecompiler.exe");
+            throw new InvalidOperationException("无法启动 resourcecompiler.exe");
         }
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        process.WaitForExit();
         process.WaitForExit();
         return process.ExitCode;
     }

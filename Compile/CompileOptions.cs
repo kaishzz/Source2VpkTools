@@ -11,4 +11,5 @@ internal sealed record CompileOptions(
     bool NoVpk,
     bool NoP4,
     bool Verbose,
-    bool DryRun);
+    bool DryRun,
+    string? ContentRoot = null);

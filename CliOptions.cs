@@ -186,6 +186,7 @@ internal sealed record CliOptions(
         string? cs2Root = null;
         string? resourceCompilerPath = null;
         string? gameInfoPath = null;
+        string? contentRoot = null;
         string? outputDirectory = null;
         var recursive = false;
         var force = false;
@@ -247,6 +248,16 @@ internal sealed record CliOptions(
                         return new CliParseResult(null, gameInfoError);
                     }
 
+                    break;
+                case "--content-root":
+                    if (!singleOptions.Add(argument))
+                    {
+                        return DuplicateOption(argument);
+                    }
+                    if (!TryReadValue(args, ref index, argument, out contentRoot, out var contentRootError))
+                    {
+                        return new CliParseResult(null, contentRootError);
+                    }
                     break;
                 case "--output":
                     if (!singleOptions.Add(argument))
@@ -345,6 +356,11 @@ internal sealed record CliOptions(
         }
 
         var fullOutputPath = outputDirectory is null ? null : Path.GetFullPath(outputDirectory);
+        var fullContentRoot = contentRoot is null ? null : Path.GetFullPath(contentRoot);
+        if (fullContentRoot is not null && !Directory.Exists(fullContentRoot))
+        {
+            return new CliParseResult(null, $"内容根目录不存在: {fullContentRoot}");
+        }
         if (fullOutputPath is not null && File.Exists(fullOutputPath))
         {
             return new CliParseResult(null, $"The compile output path is a file: {fullOutputPath}");
@@ -355,7 +371,7 @@ internal sealed record CliOptions(
                 null,
                 null,
                 CliCommand.Compile,
-                new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, fullOutputPath, recursive, force, noVpk, noP4, verbose, dryRun),
+                new CompileOptions(fullInputPath, fullCs2Root, fullCompilerPath, fullGameInfoPath, fullOutputPath, recursive, force, noVpk, noP4, verbose, dryRun, fullContentRoot),
                 null,
                 null,
                 false,

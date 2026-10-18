@@ -7,51 +7,69 @@ internal static class CompileCommand
         try
         {
             var resolution = ResourceCompilerLocator.Resolve(options);
-            if (options.OutputDirectory is not null && resolution.Cs2Root is null)
+            if ((options.OutputDirectory is not null || options.ContentRoot is not null) && resolution.Cs2Root is null)
             {
-                throw new InvalidOperationException("A compile output directory requires a resolvable CS2 root");
+                throw new InvalidOperationException("指定编译输出目录或内容根时必须能解析 CS2 根目录");
             }
 
-            Console.WriteLine($"Resource compiler: {resolution.CompilerPath}");
-            Console.WriteLine($"Input: {options.InputPath}");
-            Console.WriteLine($"Gameinfo: {resolution.GameInfoPath ?? "native auto-detection"}");
-            Console.WriteLine($"Output: {options.OutputDirectory ?? "input directory"}");
+            Console.WriteLine($"资源编译器: {resolution.CompilerPath}");
+            Console.WriteLine($"输入: {options.InputPath}");
+            Console.WriteLine($"游戏配置: {resolution.GameInfoPath ?? "由原生编译器自动检测"}");
+            Console.WriteLine($"输出: {options.OutputDirectory ?? "输入所在目录"}");
             if (options.DryRun)
             {
                 var dryRunStaging = RequiresStaging(options, resolution);
+                var dryRunRoot = dryRunStaging
+                    ? CompileInputWorkspace.GetInputRoot(options.InputPath, resolution, options.ContentRoot)
+                    : null;
+                var directoryInput = Directory.Exists(options.InputPath);
+                var dryRunInput = directoryInput
+                    ? Path.Combine(Path.GetTempPath(), ".source2vpktools_<temporary>.txt")
+                    : GetDryRunFilePath(options, resolution, dryRunRoot);
+                var dryRunGameDirectory = dryRunStaging
+                    ? Path.Combine(resolution.Cs2Root!, "game", ".source2vpktools_<temporary>")
+                    : null;
                 var dryRunArguments = BuildArguments(
                     options,
                     resolution,
-                    GetDryRunInputPath(options, resolution),
-                    dryRunStaging);
-                Console.WriteLine($"Command: {FormatCommand(resolution.CompilerPath, dryRunArguments)}");
-                if (RequiresStaging(options, resolution))
+                    dryRunInput,
+                    dryRunStaging,
+                    dryRunGameDirectory,
+                    directoryInput);
+                Console.WriteLine($"命令: {FormatCommand(resolution.CompilerPath, dryRunArguments)}");
+                if (dryRunStaging)
                 {
-                    Console.WriteLine("Input will be staged under the CS2 content directory and compiled outputs will be copied to the selected output directory");
+                    Console.WriteLine("输入将使用独立的 content/game 编译模块及专用 gameinfo.gi, 保留原游戏搜索路径");
+                }
+                if (directoryInput)
+                {
+                    Console.WriteLine($"输入清单: {CompileInputs.Enumerate(options.InputPath, options.Recursive).Length} 个源文件; 纹理和模型依赖不作为独立编译入口");
                 }
 
-                Console.WriteLine("Dry run complete; resource compilation was not started");
+                Console.WriteLine("试运行完成, 未启动资源编译");
                 return 0;
             }
 
             using var workspace = CompileInputWorkspace.Create(options, resolution);
-            var arguments = BuildArguments(options, resolution, workspace.CompilerInputPath, workspace.IsStaged);
+            var useFileList = Directory.Exists(options.InputPath);
+            var compilerInput = useFileList ? workspace.CreateCompilerFileList(options.Recursive) : workspace.CompilerInputPath;
+            var arguments = BuildArguments(options, resolution, compilerInput, workspace.IsStaged, workspace.GameDirectory, useFileList);
             var exitCode = ResourceCompilerProcess.Run(resolution.CompilerPath, arguments);
             if (exitCode == 0 && workspace.IsStaged)
             {
                 workspace.CopyCompiledFilesBack();
-                Console.WriteLine($"Compiled files copied to: {workspace.OutputDirectory}");
+                Console.WriteLine($"编译文件已复制到: {workspace.OutputDirectory}");
             }
             else if (exitCode != 0)
             {
-                Console.Error.WriteLine($"resourcecompiler.exe failed with exit code {exitCode}");
+                Console.Error.WriteLine($"resourcecompiler.exe 编译失败, 退出码: {exitCode}");
             }
 
             return exitCode;
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"Error: {exception.Message}");
+            Console.Error.WriteLine($"错误: {exception.Message}");
             return 1;
         }
     }
@@ -60,10 +78,12 @@ internal static class CompileCommand
         CompileOptions options,
         ResourceCompilerResolution resolution,
         string inputPath,
-        bool isStaged = false)
+        bool isStaged = false,
+        string? gameDirectory = null,
+        bool useFileList = false)
     {
-        var arguments = new List<string> { "-i", inputPath };
-        if (options.Recursive)
+        var arguments = new List<string> { useFileList ? "-filelist" : "-i", inputPath };
+        if (options.Recursive && !useFileList)
         {
             arguments.Add("-r");
         }
@@ -91,27 +111,21 @@ internal static class CompileCommand
         if (resolution.GameInfoPath is not null)
         {
             arguments.Add("-game");
-            arguments.Add(ResourceCompilerLocator.GetGameDirectory(resolution));
+            arguments.Add(gameDirectory ?? ResourceCompilerLocator.GetGameDirectory(resolution));
         }
 
         return arguments;
     }
 
-    private static string GetDryRunInputPath(CompileOptions options, ResourceCompilerResolution resolution)
+    private static string GetDryRunFilePath(CompileOptions options, ResourceCompilerResolution resolution, string? inputRoot)
     {
-        if (!RequiresStaging(options, resolution))
+        if (inputRoot is null)
         {
-            return Directory.Exists(options.InputPath)
-                ? Path.Combine(options.InputPath, "*")
-                : options.InputPath;
+            return options.InputPath;
         }
 
-        var moduleContentDirectory = Path.Combine(
-            resolution.Cs2Root!,
-            "content",
-            Path.GetRelativePath(Path.Combine(resolution.Cs2Root!, "game"), ResourceCompilerLocator.GetGameDirectory(resolution)));
-        var placeholder = Path.Combine(moduleContentDirectory, ".source2vpktools_<temporary>");
-        return Directory.Exists(options.InputPath) ? Path.Combine(placeholder, "*") : Path.Combine(placeholder, Path.GetFileName(options.InputPath));
+        var placeholder = Path.Combine(resolution.Cs2Root!, "content", ".source2vpktools_<temporary>");
+        return Path.Combine(placeholder, Path.GetRelativePath(inputRoot, options.InputPath));
     }
 
     private static bool RequiresStaging(CompileOptions options, ResourceCompilerResolution resolution)
@@ -121,7 +135,7 @@ internal static class CompileCommand
             return false;
         }
 
-        if (options.OutputDirectory is not null)
+        if (options.OutputDirectory is not null || options.ContentRoot is not null)
         {
             return true;
         }

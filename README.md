@@ -50,6 +50,7 @@ Source2VpkTools.exe compile `
 --cs2-root <directory>         覆盖自动发现的 CS2 根目录
 --resource-compiler <file>     覆盖 resourcecompiler.exe
 --gameinfo <path>              覆盖 gameinfo.gi 或其所在游戏目录, 只读不修改
+--content-root <directory>      指定依赖资源的内容根, 外部单文件编译时必填
 --output <directory>            将编译结果复制到指定目录, 目录必须与输入路径不同
 --recursive                    递归编译目录
 --force                        强制重新编译
@@ -69,7 +70,27 @@ Source2VpkTools.exe compile `
   --dry-run
 ```
 
-如果 `--input` 不在 CS2 的 `content` 目录下, 或者指定了 `--output`, 原生编译器无法直接使用输入路径时, 工具会将输入临时复制到对应模块的 content 目录, 强制使用 `-novpk` 编译, 再把生成的编译文件复制到输出目录并清理临时目录. 该过程不会修改 `gameinfo.gi`, 但会在 CS2 的 content/game 目录创建带随机名称的临时目录; 正常结束或编译失败时都会清理. 指定 `--output` 时必须能解析 CS2 根目录和 `gameinfo.gi`
+如果 `--input` 不在 CS2 的 `content` 目录下, 或者指定了 `--output`, 工具会在 CS2 的 content/game 下创建同名的独立编译模块. 输入保留模块相对路径, 专用 `gameinfo.gi` 挂载该模块并保留原游戏的搜索路径, 因而 `.vtex` 中的 `materials/...png` 等引用可以直接解析, 无需改写源文件. 编译强制使用 `-novpk`, 完成后将所选输入范围内的 `_c` 文件复制到输出目录; 输出路径相对于输入目录, 单文件输入则相对于文件所在目录. 原游戏的 `gameinfo.gi` 和已有文件不会被修改; 正常结束或编译失败时都会清理独立模块. 指定 `--output` 时必须能解析 CS2 根目录和 `gameinfo.gi`
+
+目录编译通过 `-filelist` 提交输入清单, `--recursive` 控制是否包含子目录. PNG, TGA 等纹理源图, FBX 等模型依赖, TXT 配置及已有 `_c` 文件不作为独立编译入口, 源图和其他依赖仍保留在内容根下供编译器读取. 外部目录输入默认以所选目录本身为内容根, 不根据祖先目录名称扩大复制范围. 编译外部单文件时必须指定 `--content-root`; 编译内容根下的某个子目录时也应指定该选项, 以保留 `materials/...` 等模块相对引用. 安装目录内的资源默认使用 `gameinfo.gi` 对应的已知模块内容根
+
+```powershell
+Source2VpkTools.exe compile `
+  --input "D:\assets_source\materials\leader\ping.vtex" `
+  --content-root "D:\assets_source" `
+  --output "D:\compiled" `
+  --nop4
+```
+
+内容根必须包含所选输入, 且不能包含工具自己的编译暂存目录. 自定义 `gameinfo.gi` 支持 `#base` 和 `#include`, 包含文件中的相对路径按各自文件位置解析; 原配置文件保持只读
+
+`--output` 可以指向单文件所在目录或输入的上层目录, 不会因此排除所选源文件和依赖. 输出目录位于输入内部且不包含所选输入时, 该输出目录不会参与复制和编译
+
+编译流程的回归测试不需要安装 CS2, 在项目根目录执行:
+
+```powershell
+dotnet run --project Tests/CompileRegressionTests.csproj
+```
 
 ## 导出地图实体
 

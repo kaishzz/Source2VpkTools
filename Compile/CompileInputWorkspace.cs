@@ -4,19 +4,22 @@ internal sealed class CompileInputWorkspace : IDisposable
 {
     private readonly string? stagedContentDirectory;
     private readonly string? stagedGameDirectory;
+    private string? compilerFileListPath;
 
     private CompileInputWorkspace(
         string compilerInputPath,
         string outputDirectory,
         bool isStaged,
         string? stagedContentDirectory,
-        string? stagedGameDirectory)
+        string? stagedGameDirectory,
+        string? gameDirectory = null)
     {
         CompilerInputPath = compilerInputPath;
         OutputDirectory = outputDirectory;
         IsStaged = isStaged;
         this.stagedContentDirectory = stagedContentDirectory;
         this.stagedGameDirectory = stagedGameDirectory;
+        GameDirectory = gameDirectory;
     }
 
     public string CompilerInputPath { get; }
@@ -24,6 +27,22 @@ internal sealed class CompileInputWorkspace : IDisposable
     public string OutputDirectory { get; }
 
     public bool IsStaged { get; }
+
+    public string? GameDirectory { get; }
+
+    public string CreateCompilerFileList(bool recursive)
+    {
+        var directory = Path.GetDirectoryName(CompilerInputPath)!;
+        var files = CompileInputs.Enumerate(directory, recursive);
+        if (files.Length == 0)
+        {
+            throw new InvalidOperationException($"目录中没有可编译的源文件: {directory}");
+        }
+
+        compilerFileListPath ??= Path.Combine(Path.GetTempPath(), $".source2vpktools_{Guid.NewGuid():N}.txt");
+        File.WriteAllLines(compilerFileListPath, files);
+        return compilerFileListPath;
+    }
 
     public static CompileInputWorkspace Create(CompileOptions options, ResourceCompilerResolution resolution)
     {
@@ -35,12 +54,12 @@ internal sealed class CompileInputWorkspace : IDisposable
         if (options.OutputDirectory is not null &&
             string.Equals(outputDirectory, Path.GetFullPath(options.InputPath), StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("The compile output directory must differ from the input path");
+            throw new InvalidOperationException("编译输出目录不能与输入目录相同");
         }
 
-        if (options.OutputDirectory is not null && resolution.Cs2Root is null)
+        if ((options.OutputDirectory is not null || options.ContentRoot is not null) && resolution.Cs2Root is null)
         {
-            throw new InvalidOperationException("A compile output directory requires a resolvable CS2 root");
+            throw new InvalidOperationException("指定编译输出目录或内容根时必须能解析 CS2 根目录");
         }
 
         if (resolution.Cs2Root is null)
@@ -50,40 +69,55 @@ internal sealed class CompileInputWorkspace : IDisposable
                 outputDirectory,
                 false,
                 null,
-                null);
+                null,
+                resolution.GameInfoPath is null ? null : ResourceCompilerLocator.GetGameDirectory(resolution));
         }
 
         var contentDirectory = GetContentDirectory(resolution);
-        if (options.OutputDirectory is null && IsWithinDirectory(options.InputPath, contentDirectory))
+        if (options.OutputDirectory is null && options.ContentRoot is null && IsWithinDirectory(options.InputPath, contentDirectory))
         {
             return new CompileInputWorkspace(
                 GetCompilerInputPath(options.InputPath),
                 outputDirectory,
                 false,
                 null,
-                null);
+                null,
+                resolution.GameInfoPath is null ? null : ResourceCompilerLocator.GetGameDirectory(resolution));
         }
 
         if (resolution.GameInfoPath is null)
         {
             throw new InvalidOperationException(
-                "An input outside the CS2 content directory requires a resolvable gameinfo.gi for temporary staging");
+                "编译 CS2 content 目录外的输入时必须能解析 gameinfo.gi");
         }
 
-        var moduleContentDirectory = GetModuleContentDirectory(resolution);
+        var inputRoot = GetInputRoot(options.InputPath, resolution, options.ContentRoot);
         var stageName = $".source2vpktools_{Guid.NewGuid():N}";
-        var stagedContentDirectory = Path.Combine(moduleContentDirectory, stageName);
-        var stagedGameDirectory = Path.Combine(ResourceCompilerLocator.GetGameDirectory(resolution), stageName);
+        var stagedContentDirectory = Path.Combine(resolution.Cs2Root, "content", stageName);
+        var stagedGameDirectory = Path.Combine(resolution.Cs2Root, "game", stageName);
+
+        if (IsWithinDirectory(stagedContentDirectory, inputRoot))
+        {
+            throw new InvalidOperationException("内容根包含编译暂存目录, 请指定更具体的 --content-root");
+        }
 
         Directory.CreateDirectory(stagedContentDirectory);
         try
         {
-            CopyInput(options.InputPath, stagedContentDirectory, options.OutputDirectory);
+            var excludedOutputDirectory = options.OutputDirectory is not null &&
+                                          !IsWithinDirectory(options.InputPath, outputDirectory)
+                ? outputDirectory
+                : null;
+            CopyContentDirectory(inputRoot, stagedContentDirectory, excludedOutputDirectory);
+            Directory.CreateDirectory(stagedGameDirectory);
+            CompileGameInfo.Write(resolution.GameInfoPath, stagedGameDirectory);
+            var stagedInput = Path.Combine(stagedContentDirectory, Path.GetRelativePath(inputRoot, options.InputPath));
             return new CompileInputWorkspace(
-                GetCompilerInputPath(options.InputPath, stagedContentDirectory),
+                GetCompilerInputPath(options.InputPath, stagedInput),
                 outputDirectory,
                 true,
                 stagedContentDirectory,
+                stagedGameDirectory,
                 stagedGameDirectory);
         }
         catch
@@ -101,17 +135,20 @@ internal sealed class CompileInputWorkspace : IDisposable
             return;
         }
 
-        if (!Directory.Exists(stagedGameDirectory))
+        var relativeInput = Path.GetRelativePath(stagedContentDirectory!, CompilerInputPath);
+        var compiledDirectory = Path.Combine(stagedGameDirectory, Path.GetDirectoryName(relativeInput)!);
+        if (!Directory.Exists(compiledDirectory))
         {
             throw new DirectoryNotFoundException(
-                $"resourcecompiler.exe completed without producing the expected output directory: {stagedGameDirectory}");
+                $"resourcecompiler.exe 已结束, 但未生成预期的输出目录: {compiledDirectory}");
         }
 
         Directory.CreateDirectory(OutputDirectory);
 
-        foreach (var compiledFile in Directory.EnumerateFiles(stagedGameDirectory, "*", SearchOption.AllDirectories))
+        foreach (var compiledFile in Directory.EnumerateFiles(compiledDirectory, "*", SearchOption.AllDirectories)
+                     .Where(IsCompiledResource))
         {
-            var relativePath = Path.GetRelativePath(stagedGameDirectory, compiledFile);
+            var relativePath = Path.GetRelativePath(compiledDirectory, compiledFile);
             var destinationPath = Path.Combine(OutputDirectory, relativePath);
             var destinationDirectory = Path.GetDirectoryName(destinationPath);
             if (!string.IsNullOrWhiteSpace(destinationDirectory))
@@ -125,6 +162,10 @@ internal sealed class CompileInputWorkspace : IDisposable
 
     public void Dispose()
     {
+        if (compilerFileListPath is not null)
+        {
+            File.Delete(compilerFileListPath);
+        }
         DeleteDirectory(stagedContentDirectory);
         DeleteDirectory(stagedGameDirectory);
     }
@@ -139,10 +180,40 @@ internal sealed class CompileInputWorkspace : IDisposable
         if (relativeModulePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativeModulePath))
         {
             throw new InvalidOperationException(
-                $"The gameinfo.gi directory must be inside the CS2 game directory: {gameDirectory}");
+                $"gameinfo.gi 所在目录必须位于 CS2 game 目录内: {gameDirectory}");
         }
 
         return Path.Combine(resolution.Cs2Root!, "content", relativeModulePath);
+    }
+
+    internal static string GetInputRoot(string inputPath, ResourceCompilerResolution resolution, string? contentRoot = null)
+    {
+        if (contentRoot is not null)
+        {
+            var root = Path.GetFullPath(contentRoot);
+            if (!Directory.Exists(root))
+            {
+                throw new DirectoryNotFoundException($"内容根目录不存在: {root}");
+            }
+            if (!IsWithinDirectory(inputPath, root))
+            {
+                throw new InvalidOperationException($"输入必须位于指定的内容根目录内: {root}");
+            }
+            return root;
+        }
+
+        var moduleRoot = GetModuleContentDirectory(resolution);
+        if (IsWithinDirectory(inputPath, moduleRoot))
+        {
+            return moduleRoot;
+        }
+
+        if (Directory.Exists(inputPath))
+        {
+            return Path.GetFullPath(inputPath);
+        }
+
+        throw new InvalidOperationException("外部单文件输入必须使用 --content-root 指定资源内容根目录");
     }
 
     private static string GetCompilerInputPath(string inputPath, string? stagedDirectory = null)
@@ -151,29 +222,22 @@ internal sealed class CompileInputWorkspace : IDisposable
         return Directory.Exists(inputPath) ? Path.Combine(basePath, "*") : basePath;
     }
 
-    private static void CopyInput(string inputPath, string stagedDirectory, string? outputDirectory)
+    private static void CopyContentDirectory(string inputRoot, string stagedDirectory, string? excludedOutputDirectory)
     {
-        if (Directory.Exists(inputPath))
+        foreach (var sourceFile in Directory.EnumerateFiles(inputRoot, "*", SearchOption.AllDirectories)
+                     .Where(file => !IsCompiledResource(file) &&
+                                    (excludedOutputDirectory is null || !IsWithinDirectory(file, excludedOutputDirectory))))
         {
-            foreach (var sourceFile in Directory.EnumerateFiles(inputPath, "*", SearchOption.AllDirectories)
-                         .Where(file => !IsCompiledResource(file) &&
-                                        (outputDirectory is null || !IsWithinDirectory(file, outputDirectory))))
+            var relativePath = Path.GetRelativePath(inputRoot, sourceFile);
+            var destinationPath = Path.Combine(stagedDirectory, relativePath);
+            var destinationDirectory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(destinationDirectory))
             {
-                var relativePath = Path.GetRelativePath(inputPath, sourceFile);
-                var destinationPath = Path.Combine(stagedDirectory, relativePath);
-                var destinationDirectory = Path.GetDirectoryName(destinationPath);
-                if (!string.IsNullOrWhiteSpace(destinationDirectory))
-                {
-                    Directory.CreateDirectory(destinationDirectory);
-                }
-
-                File.Copy(sourceFile, destinationPath);
+                Directory.CreateDirectory(destinationDirectory);
             }
 
-            return;
+            File.Copy(sourceFile, destinationPath);
         }
-
-        File.Copy(inputPath, Path.Combine(stagedDirectory, Path.GetFileName(inputPath)));
     }
 
     private static bool IsCompiledResource(string path) =>
